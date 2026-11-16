@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<title>하락군협전 세이브 에디터 v1.0</title>
+<style>
+:root{
+--paper:#f3ead6;--paper2:#ece0c6;--ink:#241c12;--ink2:#5a4a32;--rule:#b7a483;--accent:#8a2b1f;--accent2:#b8860b;--ok:#2e6b3a;--warn:#a5561b;--bubble:#fbf6e9;--shadow:0 1px 2px rgba(40,28,12,.18),0 6px 18px rgba(40,28,12,.08);--radius:6px;--tab-h:34px;
+--bg:var(--paper);--fg:var(--ink);--muted:var(--ink2);--panel:var(--paper2);--line:var(--rule);--btn:#e4d6b5;--btn-fg:var(--ink);--btn-hover:#d9c79c;--chip:#efe3c4;--field:#fbf6e9;--overlay:rgba(36,28,18,.35)
+}
+[data-theme="dark"]{
+--paper:#15120c;--paper2:#1c180f;--ink:#e8dcc0;--ink2:#a99a7c;--rule:#3a3020;--accent:#d8796b;--accent2:#e6c069;--ok:#6fbf7e;--warn:#e09a4f;--bubble:#241e13;--shadow:0 1px 2px rgba(0,0,0,.5),0 6px 18px rgba(0,0,0,.35);
+--bg:var(--paper);--fg:var(--ink);--muted:var(--ink2);--panel:var(--paper2);--line:var(--rule);--btn:#2a2317;--btn-fg:var(--ink);--btn-hover:#352c1c;--chip:#2a2317;--field:#1f1a11;--overlay:rgba(0,0,0,.55)
+}
+@media (prefers-color-scheme: dark){
+:root:not([data-theme="light"]){
+--paper:#15120c;--paper2:#1c180f;--ink:#e8dcc0;--ink2:#a99a7c;--rule:#3a3020;--accent:#d8796b;--accent2:#e6c069;--ok:#6fbf7e;--warn:#e09a4f;--bubble:#241e13;--shadow:0 1px 2px rgba(0,0,0,.5),0 6px 18px rgba(0,0,0,.35);
+--bg:var(--paper);--fg:var(--ink);--muted:var(--ink2);--panel:var(--paper2);--line:var(--rule);--btn:#2a2317;--btn-fg:var(--ink);--btn-hover:#352c1c;--chip:#2a2317;--field:#1f1a11;--overlay:rgba(0,0,0,.55)
+}}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font:14px/1.5 "Malgun Gothic","맑은 고딕",system-ui,-apple-system,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;min-height:100vh;
+background-image:radial-gradient(circle at 20% 10%,rgba(138,43,31,.04),transparent 40%),radial-gradient(circle at 80% 90%,rgba(184,134,11,.05),transparent 45%)}
+.hidden{display:none !important}
+h1{font-size:16px;margin:0;font-weight:700;letter-spacing:.02em;color:var(--fg)}
+h2{font-size:14px;margin:0 0 8px;font-weight:700;color:var(--fg)}
+h3{font-size:13px;margin:0 0 6px;font-weight:700;color:var(--fg)}
+p,li{color:var(--fg)}
+small{color:var(--muted)}
+button,select,input[type=text],input[type=number],input[type=search],input[type=file]{font:inherit;color:var(--fg)}
+button{background:var(--btn);color:var(--btn-fg);border:1px solid var(--line);border-radius:var(--radius);padding:5px 12px;cursor:pointer;transition:background .12s,border-color .12s;letter-spacing:.02em}
+button:hover:not(:disabled){background:var(--btn-hover)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent2);outline-offset:1px}
+button:disabled{opacity:.5;cursor:not-allowed}
+input[type=text],input[type=number],input[type=search],select{background:var(--field);border:1px solid var(--line);border-radius:var(--radius);padding:4px 8px;min-height:28px}
+select{cursor:pointer}
+.topbar{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);padding:8px 16px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;box-shadow:var(--shadow)}
+.topbar .row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;flex:1 1 100%}
+.topbar .row:first-child{flex:0 1 auto}
+.topbar .title-wrap{display:flex;align-items:center;gap:10px;flex:1 1 auto;min-width:0}
+.badge{display:inline-flex;align-items:center;gap:4px;background:var(--chip);border:1px solid var(--line);color:var(--muted);padding:2px 8px;border-radius:999px;font-size:12px;white-space:nowrap}
+#dirty-badge{background:var(--accent);color:#fff;border-color:transparent}
+#status-msg{min-height:22px;color:var(--muted);font-size:13px;flex-basis:100%}
+#status-msg.error{color:var(--warn)}
+#status-msg.ok{color:var(--ok)}
+#native-bar,#server-bar,#browser-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.tabs{display:flex;flex-wrap:wrap;gap:4px;padding:10px 16px 0;border-bottom:1px solid var(--line);background:var(--bg);position:sticky;top:var(--top-h,110px);z-index:10}
+.tab-btn{background:transparent;border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;padding:7px 14px;color:var(--muted);font-weight:600;letter-spacing:.02em;position:relative;top:1px}
+.tab-btn[aria-selected="true"]{background:var(--panel);color:var(--fg);border-color:var(--line);border-bottom:1px solid var(--panel);box-shadow:0 -1px 2px rgba(0,0,0,.04)}
+.tab-btn:hover:not([aria-selected="true"]){color:var(--fg);background:var(--chip)}
+main{padding:16px;max-width:1280px;margin:0 auto}
+.panel{display:none;animation:fade .15s ease}
+.panel.active{display:block}
+@keyframes fade{from{opacity:.4}to{opacity:1}}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:12px;box-shadow:var(--shadow)}
+.card h3{margin:0 0 6px;color:var(--accent);font-size:13px;letter-spacing:.04em}
+.kv{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px dashed color-mix(in srgb,var(--line) 60%,transparent)}
+.kv:last-child{border-bottom:none}
+.kv .k{color:var(--muted)}
+.kv .v{font-weight:600;text-align:right;word-break:break-all}
+#preset-grid{display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+#preset-grid button{text-align:left;padding:8px 10px}
+#preset-grid button small{display:block;color:var(--muted);font-weight:400;margin-top:2px}
+.field-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 0}
+.field-row label{min-width:110px;color:var(--muted)}
+.field-row input,.field-row select{flex:1 1 160px;max-width:280px}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 12px}
+.toolbar input[type=search]{flex:1 1 200px;max-width:340px}
+.toolbar select{max-width:240px}
+.stack{display:flex;flex-direction:column;gap:12px}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:12px;box-shadow:var(--shadow)}
+#stat-group-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+#stat-group-bar button{padding:4px 10px;font-size:12px}
+#stat-group-bar button[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:transparent}
+#stats-grid{display:grid;gap:6px;grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+.stat-item{display:flex;align-items:center;justify-content:space-between;gap:6px;background:var(--field);border:1px solid var(--line);border-radius:var(--radius);padding:5px 8px}
+.stat-item .name{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1 1 auto}
+.stat-item input{width:76px;text-align:right;padding:2px 6px;min-height:24px}
+.table-wrap{overflow:auto;max-height:min(60vh,520px);border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);overscroll-behavior:contain}
+.inv-table,.atlas-table,.diff-table{width:100%;border-collapse:collapse;font-size:13px}
+.inv-table th,.atlas-table th,.diff-table th{position:sticky;top:0;background:var(--panel);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);font-weight:700;color:var(--accent);z-index:2}
+.inv-table td,.atlas-table td,.diff-table td{padding:5px 8px;border-bottom:1px solid color-mix(in srgb,var(--line) 50%,transparent);vertical-align:middle}
+.inv-table tr:nth-child(even) td,.atlas-table tr:nth-child(even) td,.diff-table tr:nth-child(even) td{background:color-mix(in srgb,var(--panel) 60%,var(--field) 40%)}
+.inv-table td input[type=number]{width:64px;text-align:right;padding:2px 5px;min-height:24px}
+.chip-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip{display:inline-flex;align-items:center;gap:4px;background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:2px 9px;font-size:12px;color:var(--fg)}
+.chip.muted{color:var(--muted)}
+.empty{color:var(--muted);font-size:13px;padding:10px;text-align:center}
+dialog#picker-dialog{border:1px solid var(--line);border-radius:8px;padding:0;width:min(560px,92vw);max-height:80vh;background:var(--panel);color:var(--fg);box-shadow:0 12px 40px rgba(0,0,0,.35);overscroll-behavior:contain}
+dialog#picker-dialog::backdrop{background:var(--overlay)}
+.dialog-head{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.dialog-head h3{margin:0;flex:1 1 auto;color:var(--fg)}
+.dialog-body{padding:10px 12px;display:flex;flex-direction:column;gap:8px;max-height:calc(80vh - 60px);overflow:auto;overscroll-behavior:contain}
+#picker-list{list-style:none;margin:0;padding:0;overflow:auto;flex:1 1 auto;border:1px solid var(--line);border-radius:6px;background:var(--field);min-height:120px;max-height:56vh}
+#picker-list li{padding:6px 10px;border-bottom:1px solid color-mix(in srgb,var(--line) 55%,transparent);cursor:pointer}
+#picker-list li:last-child{border-bottom:none}
+#picker-list li:hover,#picker-list li[aria-selected="true"]{background:var(--chip)}
+#picker-list li .sub{color:var(--muted);font-size:12px}
+@media (max-width:720px){
+.topbar{padding:8px 10px}
+main{padding:10px}
+.tabs{padding:8px 10px 0}
+.tab-btn{padding:6px 10px;font-size:13px}
+.field-row label{min-width:90px}
+.inv-table td input[type=number]{width:56px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="row">
+    <div class="title-wrap">
+      <h1>하락군협전 세이브 에디터 v1.0</h1>
+      <span id="file-badge" class="badge">파일 미로드</span>
+      <span id="dirty-badge" class="badge" hidden>미저장 변경</span>
+    </div>
+    <button id="btn-theme" type="button">테마 전환</button>
+  </div>
+  <div class="row" id="native-bar" hidden>
+    <button id="btn-native-open" type="button">열기 (.save)</button>
+    <button id="btn-native-save" type="button">저장 (백업 생성)</button>
+    <button id="btn-native-save-copy" type="button">다른 이름으로 저장</button>
+  </div>
+  <div class="row" id="server-bar" hidden>
+    <select id="server-save-select" aria-label="서버 세이브 선택"></select>
+    <button id="btn-server-load" type="button">불러오기</button>
+    <button id="btn-server-save" type="button">서버 저장</button>
+  </div>
+  <div class="row" id="browser-bar">
+    <input type="file" id="file-input" accept=".save" class="hidden">
+    <button id="btn-file-open" type="button">파일 열기 (.save)</button>
+    <button id="btn-download-save" type="button" disabled>다운로드 (.save)</button>
+    <button id="btn-load-demo" type="button">데모 세이브 체험</button>
+  </div>
+  <div class="row">
+    <div id="status-msg" role="status" aria-live="polite">세이브 파일을 열어 주세요.</div>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="편집 탭">
+  <button class="tab-btn" id="tab-btn-summary" role="tab" type="button" aria-selected="true" aria-controls="panel-summary">요약 · 프리셋 · 세계</button>
+  <button class="tab-btn" id="tab-btn-chara" role="tab" type="button" aria-selected="false" aria-controls="panel-chara" tabindex="-1">인물 · 능력치</button>
+  <button class="tab-btn" id="tab-btn-skills" role="tab" type="button" aria-selected="false" aria-controls="panel-skills" tabindex="-1">무공 · 감오</button>
+  <button class="tab-btn" id="tab-btn-inventory" role="tab" type="button" aria-selected="false" aria-controls="panel-inventory" tabindex="-1">장비 · 소지품</button>
+  <button class="tab-btn" id="tab-btn-party" role="tab" type="button" aria-selected="false" aria-controls="panel-party" tabindex="-1">동료 · 거점 · 칭호</button>
+  <button class="tab-btn" id="tab-btn-atlas" role="tab" type="button" aria-selected="false" aria-controls="panel-atlas" tabindex="-1">코드 도감 · 검증 · 변경내역</button>
+</nav>
+
+<main>
+  <section class="panel active" id="panel-summary" role="tabpanel" aria-labelledby="tab-btn-summary">
+    <div class="grid" id="summary-cards"></div>
+    <div class="box" style="margin-top:12px">
+      <h2>빠른 프리셋</h2>
+      <div id="preset-grid"></div>
+    </div>
+    <div class="box" style="margin-top:12px">
+      <h2>세계 설정</h2>
+      <form id="world-form" onsubmit="return false"></form>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-chara" role="tabpanel" aria-labelledby="tab-btn-chara" hidden>
+    <div class="toolbar">
+      <input type="search" id="chara-filter" placeholder="인물 검색" aria-label="인물 검색">
+      <select id="chara-select" aria-label="인물 선택"><option value="">불러온 세이브 없음</option></select>
+    </div>
+    <div class="box" id="chara-basic-box"><div class="empty">인물을 선택해 주세요.</div></div>
+    <div class="box" style="margin-top:12px">
+      <h3>능력치</h3>
+      <div id="stat-group-bar"></div>
+      <div id="stats-grid"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-skills" role="tabpanel" aria-labelledby="tab-btn-skills" hidden>
+    <div class="stack">
+      <div class="box" id="skills-box"><div class="empty">무공 정보가 없습니다.</div></div>
+      <div class="box" id="talents-box"><div class="empty">감오 정보가 없습니다.</div></div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-inventory" role="tabpanel" aria-labelledby="tab-btn-inventory" hidden>
+    <div class="stack">
+      <div class="box" id="equip-box"><div class="empty">장비 정보가 없습니다.</div></div>
+      <div class="toolbar" id="inventory-toolbar">
+        <input type="search" id="inv-filter" placeholder="소지품 검색" aria-label="소지품 검색">
+        <select id="inv-category" aria-label="분류 선택"><option value="">전체 분류</option></select>
+      </div>
+      <div id="inventory-table-wrap" role="region" tabindex="0" aria-label="소지품 표"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-party" role="tabpanel" aria-labelledby="tab-btn-party" hidden>
+    <div class="stack">
+      <div class="box" id="party-box"><div class="empty">동료 정보가 없습니다.</div></div>
+      <div class="box" id="teleporters-box"><div class="empty">거점 정보가 없습니다.</div></div>
+      <div class="box" id="nicknames-box"><div class="empty">칭호 정보가 없습니다.</div></div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-atlas" role="tabpanel" aria-labelledby="tab-btn-atlas" hidden>
+    <div class="stack">
+      <div class="box" id="validation-box"><div class="empty">검증할 변경 사항이 없습니다.</div></div>
+      <div class="box" id="diff-box"><div class="empty">변경 내역이 없습니다.</div></div>
+      <div class="box" id="atlas-box"><div class="empty">도감 데이터가 없습니다.</div></div>
+    </div>
+  </section>
+</main>
+
+<dialog id="picker-dialog">
+  <div class="dialog-head">
+    <h3 id="picker-title">선택</h3>
+    <button id="picker-close" type="button">닫기</button>
+  </div>
+  <div class="dialog-body">
+    <input type="search" id="picker-search" placeholder="검색" aria-label="검색">
+    <ul id="picker-list" role="listbox" aria-label="선택 목록"></ul>
+  </div>
+</dialog>
+
+<script src="htls-lz4-msgpack.js"></script>
+<script src="catalog-data.js"></script>
+<script src="editor-core.js"></script>
+<script src="editor-ui.js"></script>
+</body>
+</html>
