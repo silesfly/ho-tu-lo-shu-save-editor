@@ -1,0 +1,12 @@
+*.save
+*.bak
+*.pending*
+*.tmp
+__pycache__/
+*.pyc
+HANDOFF*.md
+work/
+dist/*.exe
+dist/*.zip
+receipt.json
+.playwright-mcp/
