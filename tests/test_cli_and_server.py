@@ -58,11 +58,14 @@ def _request(url, method="GET", headers=None, data=None):
             return exc.code, dict(exc.headers), exc.read()
 
 
-class TestCodecAndCore(unittest.TestCase):
+class _TempDirTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.dir = self.tmp.name
+
+
+class TestCodecAndCore(_TempDirTest):
 
     def test_demo_parse_validate_serialize_roundtrip(self):
         out = os.path.join(self.dir, "demo.save")
@@ -148,12 +151,38 @@ class TestCodecAndCore(unittest.TestCase):
             else:
                 os.environ["HTLS_SIMULATE_GAME_RUNNING"] = old
 
+    @unittest.skipUnless(hasattr(os, "symlink"), "symlink not supported")
+    def test_backup_and_write_ignores_predictable_tmp_symlink(self):
+        demo_path = os.path.join(self.dir, "demo.save")
+        htls_editor.create_demo_save(demo_path)
+        with open(demo_path, "rb") as f:
+            orig_bytes = f.read()
 
-class TestCLI(unittest.TestCase):
-    def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self.tmp.cleanup)
-        self.dir = self.tmp.name
+        victim = os.path.join(self.dir, "victim.txt")
+        with open(victim, "wb") as f:
+            f.write(b"KEEP_ME")
+        predictable_tmp = demo_path + ".tmp"
+        try:
+            os.symlink(victim, predictable_tmp)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest(str(exc))
+
+        save = htls_editor.parse_save(demo_path)
+        htls_editor.apply_preset(save, "rich_hero")
+        new_bytes = htls_editor.serialize_save(save)
+        bak_path = htls_editor.backup_and_write(demo_path, new_bytes)
+
+        self.assertTrue(bak_path and os.path.isfile(bak_path))
+        with open(victim, "rb") as f:
+            self.assertEqual(f.read(), b"KEEP_ME")
+        self.assertTrue(os.path.islink(predictable_tmp))
+        with open(demo_path, "rb") as f:
+            self.assertEqual(f.read(), new_bytes)
+        with open(bak_path, "rb") as f:
+            self.assertEqual(f.read(), orig_bytes)
+
+
+class TestCLI(_TempDirTest):
 
     def test_demo_cli(self):
         out = os.path.join(self.dir, "demo.save")

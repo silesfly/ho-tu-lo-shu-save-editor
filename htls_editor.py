@@ -11,6 +11,7 @@ import secrets
 import shutil
 import struct
 import sys
+import tempfile
 import time
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -552,6 +553,14 @@ def secure_path(path, must_exist=False):
         raise SaveError(K_ERR_EXT)
     if os.path.islink(path):
         raise SaveError(K_ERR_PATH)
+    cur = os.path.dirname(os.path.abspath(path))
+    while True:
+        if os.path.islink(cur):
+            raise SaveError(K_ERR_PATH)
+        parent = os.path.dirname(cur)
+        if parent == cur or not os.path.exists(cur):
+            break
+        cur = parent
     if must_exist:
         if not os.path.isfile(path):
             raise SaveError(K_ERR_PATH)
@@ -588,6 +597,7 @@ def _sha256(data):
 
 def backup_and_write(path, data):
     check_game_running()
+    secure_path(path)
     bak = None
     if os.path.exists(path):
         with open(path, "rb") as f:
@@ -597,19 +607,47 @@ def backup_and_write(path, data):
         ts = datetime.now().strftime("%Y%m%d-%H%M%S")
         rnd = secrets.token_hex(4)
         bak = f"{stem}.backup-{ts}-{rnd}.bak"
-        with open(bak, "wb") as f:
-            f.write(orig)
-        # verify
+        bak_fd = os.open(bak, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        try:
+            with os.fdopen(bak_fd, "wb") as bf:
+                bak_fd = None
+                bf.write(orig)
+                bf.flush()
+                os.fsync(bf.fileno())
+        finally:
+            if bak_fd is not None:
+                os.close(bak_fd)
         with open(bak, "rb") as f:
             bak_hash = _sha256(f.read())
         if bak_hash != h:
             raise SaveError(K_BAK)
-    tmp = path + ".tmp"
-    with open(tmp, "wb") as f:
-        f.write(data)
-        f.flush()
-        os.fsync(f.fileno())
-    os.replace(tmp, path)
+
+    abs_dir = os.path.dirname(os.path.abspath(path))
+    data_hash = _sha256(data)
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            dir=abs_dir,
+            prefix=os.path.basename(path) + ".pending-",
+            suffix=".tmp",
+            delete=False,
+        ) as tf:
+            tmp_path = tf.name
+            tf.write(data)
+            tf.flush()
+            os.fsync(tf.fileno())
+        with open(tmp_path, "rb") as rf:
+            if _sha256(rf.read()) != data_hash:
+                raise SaveError(K_ERR_PATH)
+        os.replace(tmp_path, path)
+        tmp_path = None
+    finally:
+        if tmp_path is not None and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
     return bak
 
 # ---------- 데모 ----------
@@ -777,6 +815,18 @@ def cmd_edit(args):
 # ---------- HTTP 서버 ----------
 HTML_DEFAULT = "dist/HoTuLoShuSaveEditor-v1.0.html"
 
+def _safe_root_save(root, name, must_exist=False):
+    if not isinstance(name, str) or not name:
+        raise SaveError(K_ERR_PATH)
+    real_root = os.path.realpath(root)
+    joined = os.path.abspath(os.path.join(real_root, name))
+    if not joined.startswith(real_root + os.sep):
+        raise SaveError(K_ERR_PATH)
+    real_target = os.path.realpath(joined)
+    if not real_target.startswith(real_root + os.sep):
+        raise SaveError(K_ERR_PATH)
+    return secure_path(joined, must_exist=must_exist)
+
 class ApiHandler(BaseHTTPRequestHandler):
     server_version = "HTLS/1.0"
     def log_message(self, *a): pass
@@ -834,10 +884,7 @@ class ApiHandler(BaseHTTPRequestHandler):
             name = (q.get("name") or [""])[0]
             try:
                 root = getattr(self.server, "root", ".")
-                full = os.path.abspath(os.path.join(root, name))
-                if not full.startswith(os.path.abspath(root) + os.sep):
-                    return self._send(400, {"오류": K_ERR_PATH})
-                secure_path(full, must_exist=True)
+                full = _safe_root_save(root, name, must_exist=True)
                 save = parse_save(full)
                 validate_save(save)
                 with open(full, "rb") as sf:
@@ -868,10 +915,7 @@ class ApiHandler(BaseHTTPRequestHandler):
             req = json.loads(body.decode("utf-8"))
             name = req.get("name", "")
             root = getattr(self.server, "root", ".")
-            full = os.path.abspath(os.path.join(root, name))
-            if not full.startswith(os.path.abspath(root) + os.sep):
-                return self._send(400, {"오류": K_ERR_PATH})
-            secure_path(full)
+            full = _safe_root_save(root, name, must_exist=False)
             b64 = req.get("data") or req.get("dataB64")
             if b64:
                 raw = base64.b64decode(b64, validate=True)
