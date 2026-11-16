@@ -494,6 +494,7 @@ namespace HoTuLoShuSaveEditor
 
             string lockPath = full + ".lock";
             FileStream lockStream = null;
+            bool lockAcquired = false;
             List<SafeFileHandle> pinned = new List<SafeFileHandle>();
             string pendingPath = null;
             string backupPath = null;
@@ -501,7 +502,9 @@ namespace HoTuLoShuSaveEditor
             {
                 try
                 {
-                    lockStream = new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                    lockStream = new FileStream(lockPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
+                    VerifyHandle(lockStream, lockPath);
+                    lockAcquired = true;
                 }
                 catch (IOException ex)
                 {
@@ -587,7 +590,7 @@ namespace HoTuLoShuSaveEditor
                 }
                 try
                 {
-                    if (File.Exists(lockPath)) File.Delete(lockPath);
+                    if (lockAcquired && File.Exists(lockPath)) File.Delete(lockPath);
                 }
                 catch { }
             }

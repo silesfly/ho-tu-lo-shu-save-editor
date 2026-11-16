@@ -304,6 +304,33 @@ namespace HoTuLoShuSaveEditor.Tests
                     AssertBytesEqual(v2, SaveStore.Read(targetPath), "target unchanged after stale hash");
                 }, ref passed, ref failed);
 
+                RunTest("12. Pre-existing .lock hardlink throws without modifying or deleting victim", delegate
+                {
+                    string lockTestDir = Path.Combine(tempDir, "lock_guard");
+                    Directory.CreateDirectory(lockTestDir);
+                    string victimPath = Path.Combine(lockTestDir, "victim.save");
+                    string guardedTarget = Path.Combine(lockTestDir, "guarded.save");
+                    string plantedLock = guardedTarget + ".lock";
+
+                    byte[] v1 = BuildMinimalValidSaveBytes(777);
+                    byte[] v2 = BuildMinimalValidSaveBytes(888);
+                    File.WriteAllBytes(victimPath, v1);
+
+                    if (!CreateHardLinkW(plantedLock, victimPath, IntPtr.Zero))
+                    {
+                        throw new Exception("CreateHardLinkW failed for lock guard test: " + Marshal.GetLastWin32Error());
+                    }
+
+                    AssertThrows(typeof(Exception), delegate
+                    {
+                        SaveStore.SaveWithBackup(guardedTarget, v2, null);
+                    }, "SaveWithBackup with pre-existing .lock hardlink");
+
+                    AssertEqual(true, File.Exists(plantedLock), "pre-existing .lock must remain intact");
+                    AssertBytesEqual(v1, File.ReadAllBytes(victimPath), "victim file must remain untouched");
+                    AssertEqual(false, File.Exists(guardedTarget), "guardedTarget must not be created");
+                }, ref passed, ref failed);
+
                 if (args != null && args.Length > 0 && !string.IsNullOrEmpty(args[0]))
                 {
                     string realPath = args[0];
